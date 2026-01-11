@@ -1,0 +1,19 @@
+{
+	"luci-app-mullvad": {
+		"description": "Grant access to Mullvad WireGuard Manager",
+		"read": {
+			"uci": [ "network", "mullvad" ],
+			"file": {
+				"/tmp/mullvad_servers.json": [ "read" ],
+				"/tmp/mullvad_status.json": [ "read" ],
+				"/usr/bin/mullvad-fetch-servers.sh": [ "exec" ],
+				"/usr/bin/mullvad-apply-server.sh": [ "exec" ],
+				"/usr/bin/mullvad-get-status.sh": [ "exec" ],
+				"/etc/init.d/network": [ "exec" ]
+			}
+		},
+		"write": {
+			"uci": [ "network", "mullvad" ]
+		}
+	}
+}

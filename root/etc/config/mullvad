@@ -1,0 +1,12 @@
+
+config settings 'config'
+	option cache_enabled '1'
+	option cache_ttl '86400'
+	option auto_refresh_enabled '0'
+	option auto_refresh_interval '604800'
+	option wireguard_interface 'MullvadWG'
+	option last_fetch '0'
+
+config cache 'servers'
+	option data ''
+	option timestamp '0'

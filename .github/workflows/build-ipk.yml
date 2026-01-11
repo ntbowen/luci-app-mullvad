@@ -1,0 +1,104 @@
+name: Build IPK Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build IPK Package
+    runs-on: ubuntu-latest
+    env:
+      # Using x86_64 SDK - the package is architecture-independent (PKGARCH:=all)
+      SDK_URL: https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download and extract OpenWrt SDK
+        run: |
+          wget -q ${{ env.SDK_URL }}
+          ls -lh *.tar.xz
+          tar -xf openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+          ls -ld openwrt-sdk-*
+          mv openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64 openwrt-sdk
+
+      - name: Update feeds and prepare package
+        run: |
+          cd openwrt-sdk
+          # Update luci feed to get luci.mk
+          ./scripts/feeds update luci
+          # Create package directory in package/ (not feeds/)
+          mkdir -p package/luci-app-mullvad
+          # Copy package files
+          cp -r ../htdocs package/luci-app-mullvad/ 2>/dev/null || true
+          cp -r ../root package/luci-app-mullvad/ 2>/dev/null || true
+          cp ../Makefile package/luci-app-mullvad/
+          # Create a modified Makefile that uses the luci feed's luci.mk
+          sed -i 's|include ../../luci.mk|include $(TOPDIR)/feeds/luci/luci.mk|' package/luci-app-mullvad/Makefile
+
+      - name: Configure and build
+        run: |
+          cd openwrt-sdk
+          # Generate default config
+          make defconfig
+          # Enable our package in the build config
+          echo "CONFIG_PACKAGE_luci-app-mullvad=y" >> .config
+          make defconfig
+          # Build our architecture-independent package
+          make -j1 V=s package/luci-app-mullvad/compile
+
+      - name: Find and copy IPK file
+        id: find_ipk
+        run: |
+          cd openwrt-sdk
+          IPK_FILE=$(find bin/packages -name "luci-app-mullvad*.ipk" -type f)
+          if [ -z "$IPK_FILE" ]; then
+            echo "Error: IPK file not found"
+            exit 1
+          fi
+
+          # Copy IPK file to root directory
+          cp "$IPK_FILE" ../
+          IPK_NAME=$(basename "$IPK_FILE")
+          echo "ipk_file=${IPK_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Upload IPK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-mullvad-ipk
+          path: ${{ steps.find_ipk.outputs.ipk_file }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir release-files
+          find artifacts -name "*.ipk" -exec cp {} release-files/ \;
+          ls -lh release-files/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release-files/*.ipk
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
