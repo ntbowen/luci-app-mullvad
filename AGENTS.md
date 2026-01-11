@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents when working with code in this repository.
 
 ## Project Overview
 
@@ -55,25 +55,16 @@ This logic is implemented in `mullvad-apply-server.sh` (`auto_detect_interface()
 
 **IMPORTANT**: The OpenWrt SDK can only be built on Linux. The SDK contains Linux-specific binaries and requires GNU tools. Building on macOS or Windows will fail with "cannot execute binary file" errors.
 
-The GitHub Actions workflow (`.github/workflows/build-ipk.yml`) builds the package on Ubuntu:
+The GitHub Actions workflow (`.github/workflows/build-ipk.yml`) builds the package on Ubuntu and publishes releases automatically on tag push.
 
-```bash
-# The workflow downloads OpenWrt SDK and builds automatically on tag push
-# To manually trigger: use workflow_dispatch from GitHub Actions UI
-```
+**Package Structure**:
+- The workflow places the package in `package/luci-app-mullvad/` directory
+- The Makefile's `include` path is modified to use `$(TOPDIR)/feeds/luci/luci.mk`
+- Build command: `make -j1 V=s package/luci-app-mullvad/compile`
 
-**Package Structure Requirements**:
-- The Makefile includes `../../luci.mk`, which means the package MUST be placed in:
-  ```
-  feeds/luci/applications/luci-app-mullvad/
-  ```
-- NOT in `package/luci-app-mullvad/` - this will cause build failures
-- The build process:
-  1. Copy package files to `feeds/luci/applications/luci-app-mullvad/`
-  2. Run `./scripts/feeds update -a` to index the package
-  3. Run `./scripts/feeds install luci-app-mullvad` to register it
-  4. Run `make defconfig` to generate default configuration
-  5. Build with `make package/luci-app-mullvad/compile`
+**Triggering a Build**:
+- Push a tag matching `v*` pattern (e.g., `v1.0.1`)
+- Or manually trigger via GitHub Actions UI using workflow_dispatch
 
 The SDK URL and filename are hardcoded in the workflow. If updating OpenWrt version:
 - Change `SDK_URL` environment variable
@@ -179,22 +170,31 @@ The peer section name pattern is `wireguard_<InterfaceName>` where `<InterfaceNa
 
 1. **Cannot Build on macOS/Windows**: The OpenWrt SDK only works on Linux. Attempting to build on macOS will fail with "cannot execute binary file" and "ld-linux-x86-64.so.2" errors. Always use Linux (or GitHub Actions with ubuntu-latest) for builds.
 
-2. **Package Location**: LuCI packages MUST be in `feeds/luci/applications/<package-name>/`, NOT in `package/<package-name>/`. The Makefile's `include ../../luci.mk` expects the feeds directory structure. Placing the package in the wrong location will cause "luci.mk not found" build failures.
+2. **Package Location in Build**: The GitHub Actions workflow places the package in `package/luci-app-mullvad/` and modifies the Makefile's include path to use `$(TOPDIR)/feeds/luci/luci.mk`. This is different from the traditional feeds directory structure but works for SDK builds.
 
-3. **Feeds Installation**: Do NOT run `./scripts/feeds install -a` (install all packages). OpenWrt 23.05.2 feeds contain packages with broken dependencies (e.g., `python3-pymysql` has a recursive dependency). Only install the specific packages needed: `luci-base luci-proto-wireguard wireguard-tools curl jsonfilter`. The build will fail with "recursive dependency detected!" if you install all packages.
+3. **Missing .config File**: The SDK requires a `.config` file before building. Always run `make defconfig` before compiling packages. Without this, the build will try to run `menuconfig` and fail with "Error opening terminal: unknown." in CI environments.
 
-4. **Missing .config File**: The SDK requires a `.config` file before building. Always run `make defconfig` before compiling packages. Without this, the build will try to run `menuconfig` and fail with "Error opening terminal: unknown." in CI environments.
+4. **GitHub Actions SDK URL**: The workflow uses explicit filenames for tar extraction and mv commands. Wildcards fail in the CI environment. If changing OpenWrt versions, update all instances of the SDK filename.
 
-5. **GitHub Actions SDK URL**: The workflow uses explicit filenames for tar extraction and mv commands. Wildcards fail in the CI environment. If changing OpenWrt versions, update all three instances of the SDK filename.
+5. **Interface Name Assumptions**: Never hardcode `MullvadWG` - always use the configured/detected interface name from `mullvad.config.wireguard_interface`.
 
-6. **Interface Name Assumptions**: Never hardcode `MullvadWG` - always use the configured/detected interface name from `mullvad.config.wireguard_interface`.
+6. **UCI Caching Limits**: UCI has size limits for option values. The JSON is compressed (whitespace removed) before storing in UCI cache.
 
-7. **UCI Caching Limits**: UCI has size limits for option values. The JSON is compressed (whitespace removed) before storing in UCI cache.
+7. **Shell Script Permissions**: All shell scripts must be executable (`chmod +x`). ACL and menu JSON files must NOT be executable (644).
 
-8. **Shell Script Permissions**: All shell scripts must be executable (`chmod +x`). ACL and menu JSON files must NOT be executable (644).
+8. **Service Restart Order**: Always restart `rpcd` before `uhttpd` when updating ACL or menu files.
 
-9. **Service Restart Order**: Always restart `rpcd` before `uhttpd` when updating ACL or menu files.
+## Release Process
+
+1. **Update version**: Update `PKG_VERSION` in `Makefile`
+2. **Update README**: Update download URLs if version changed
+3. **Commit changes**: Create a clean commit with the changes
+4. **Tag release**: Create an annotated tag (e.g., `git tag -a v1.0.1 -m "Release v1.0.1"`)
+5. **Push tag**: Push the tag to GitHub (`git push origin v1.0.1`)
+6. **Automatic build**: GitHub Actions will automatically build and create a release with the IPK attached
 
 ## Commit Message Guidelines
 
-Do not include "Co-Authored-By: Claude" trailers or Claude Code footer links in commit messages.
+- Use conventional commit format when appropriate
+- Keep commit messages clear and descriptive
+- Do not include AI authorship trailers unless specifically requested by the user

@@ -4,23 +4,31 @@ A LuCI web application for OpenWrt that provides a user-friendly interface to ma
 
 ![Mullvad WireGuard Manager Interface](screenshots/mullvad-manager-ui.png)
 
-## Quick Installation
+## 📦 Installation
 
-**IPK Package** (recommended):
+### Download Pre-built Package
+
+**[Download the latest release](https://github.com/linakis/luci-app-mullvad/releases/latest)** - Ready-to-install IPK package for all OpenWrt routers.
+
+### Quick Installation
+
+Install dependencies and the package on your router:
+
 ```bash
-# On your router
+# Install dependencies
 opkg update
 opkg install luci-base luci-proto-wireguard wireguard-tools curl jsonfilter
+
+# Download and install the package
 cd /tmp
 wget https://github.com/linakis/luci-app-mullvad/releases/latest/download/luci-app-mullvad_1.0.0_all.ipk
 opkg install luci-app-mullvad_1.0.0_all.ipk
+
+# Restart services
 /etc/init.d/rpcd restart && /etc/init.d/uhttpd restart
 ```
 
-**One-line install script** (alternative):
-```bash
-ssh root@<router-ip> "wget -O - https://raw.githubusercontent.com/linakis/luci-app-mullvad/main/install.sh | sh"
-```
+Then access the application at **Services → Mullvad WireGuard** in your router's LuCI interface.
 
 ## Features
 
@@ -64,57 +72,9 @@ If you haven't set up Mullvad WireGuard on OpenWrt yet, follow the official guid
 4. Configure the WireGuard interface in LuCI (Network → Interfaces)
 5. Install this app to easily manage server selection
 
-## Installation
+## Advanced Installation
 
-### Method 1: Install from Pre-built IPK (Easiest)
-
-The recommended method for most users. Download and install the pre-built package directly on your router.
-
-**Prerequisites**: Ensure you have the required packages installed first:
-```bash
-opkg update
-opkg install luci-base luci-proto-wireguard wireguard-tools curl jsonfilter
-```
-
-**Installation**:
-
-1. **SSH into your router**:
-```bash
-ssh root@<router-ip>
-```
-
-2. **Download the latest IPK package** (on the router):
-```bash
-cd /tmp
-wget https://github.com/linakis/luci-app-mullvad/releases/latest/download/luci-app-mullvad_1.0.0_all.ipk
-```
-
-Or download a specific version:
-```bash
-wget https://github.com/linakis/luci-app-mullvad/releases/download/v1.0.0/luci-app-mullvad_1.0.0_all.ipk
-```
-
-3. **Install the package**:
-```bash
-opkg install luci-app-mullvad_1.0.0_all.ipk
-```
-
-4. **Restart services**:
-```bash
-/etc/init.d/rpcd restart
-/etc/init.d/uhttpd restart
-```
-
-5. **Access the application**:
-   - Navigate to your router's LuCI interface (e.g., http://192.168.1.1)
-   - Go to **Services → Mullvad WireGuard**
-
-**To uninstall**:
-```bash
-opkg remove luci-app-mullvad
-```
-
-### Method 2: Manual Installation (Alternative)
+### Manual Installation (Development/Testing)
 
 This method works without downloading packages. All files are scripts and configs that work as-is.
 
